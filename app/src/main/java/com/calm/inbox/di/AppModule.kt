@@ -6,11 +6,13 @@ import com.calm.inbox.core.database.AppDatabase
 import com.calm.inbox.core.database.dao.BriefDao
 import com.calm.inbox.core.database.dao.ChatMessageDao
 import com.calm.inbox.core.database.dao.NotificationDao
+import com.calm.inbox.core.notifications.NotificationEntityFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.time.Clock
 import javax.inject.Singleton
 
 @Module
@@ -23,6 +25,15 @@ object AppModule {
         Room.databaseBuilder(context, AppDatabase::class.java, "calm_inbox.db")
             .fallbackToDestructiveMigration()
             .build()
+
+    @Provides
+    @Singleton
+    fun provideClock(): Clock = Clock.systemDefaultZone()
+
+    @Provides
+    @Singleton
+    fun provideNotificationEntityFactory(clock: Clock): NotificationEntityFactory =
+        NotificationEntityFactory(clock)
 
     @Provides
     fun provideNotificationDao(database: AppDatabase): NotificationDao =
