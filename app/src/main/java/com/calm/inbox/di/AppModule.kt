@@ -1,6 +1,9 @@
 package com.calm.inbox.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.calm.inbox.core.classify.RuleEngine
 import com.calm.inbox.core.database.AppDatabase
@@ -8,6 +11,8 @@ import com.calm.inbox.core.database.dao.BriefDao
 import com.calm.inbox.core.database.dao.ChatMessageDao
 import com.calm.inbox.core.database.dao.NotificationDao
 import com.calm.inbox.core.notifications.NotificationEntityFactory
+import com.calm.inbox.features.settings.NotificationAccessChecker
+import com.calm.inbox.features.settings.SettingsRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,6 +20,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.time.Clock
 import javax.inject.Singleton
+
+private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
+    "calm_settings"
+)
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -26,6 +35,21 @@ object AppModule {
         Room.databaseBuilder(context, AppDatabase::class.java, "calm_inbox.db")
             .fallbackToDestructiveMigration()
             .build()
+
+    @Provides
+    @Singleton
+    fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
+        context.settingsDataStore
+
+    @Provides
+    @Singleton
+    fun provideSettingsRepository(dataStore: DataStore<Preferences>): SettingsRepository =
+        SettingsRepository(dataStore)
+
+    @Provides
+    @Singleton
+    fun provideNotificationAccessChecker(@ApplicationContext context: Context): NotificationAccessChecker =
+        NotificationAccessChecker(context)
 
     @Provides
     @Singleton
