@@ -36,6 +36,16 @@ Install on a connected device:
 
 After first launch, open **Settings → Notification access** and grant CalmInbox access. The app does not request Internet access for W1 classification; notification content is processed only on-device.
 
+## Local data model
+
+CalmInbox stores all W1 data in a local Room database named `calm_inbox.db`:
+
+- `notifications`: package, app name, title, truncated text, posted time, category, importance, summary, and a unique SHA-256 digest.
+- `briefs`: daily summary date, Markdown-like content, and creation time. W2 fills this table.
+- `chat_messages`: local Q&A history and citation IDs. W3 fills this table.
+
+Notification access can be granted in **Android system Settings → Notification access → CalmInbox**.
+
 ## Privacy
 
 CalmInbox stores notifications in a local Room database. It has no account system and no cloud model upload. The local MNN model and AI classification are introduced in W2; W1 remains fully usable with deterministic rules.
