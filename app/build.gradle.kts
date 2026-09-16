@@ -78,3 +78,9 @@ dependencies {
     testImplementation(libs.truth)
     testImplementation(libs.work.testing)
 }
+
+kapt {
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+}
