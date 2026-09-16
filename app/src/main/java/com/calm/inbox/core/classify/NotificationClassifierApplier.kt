@@ -8,9 +8,10 @@ class NotificationClassifierApplier(
 ) {
 
     suspend fun classifyPending(limit: Int = 100): Int {
-        val pending = dao.getUnclassified(limit)
+        val pending = dao.getUnclassified(CLASSIFICATION_SCAN_LIMIT)
         var updated = 0
         for (item in pending) {
+            if (updated >= limit) break
             val result = rules.classify(item) ?: continue
             dao.updateClassification(
                 id = item.id,
@@ -21,5 +22,9 @@ class NotificationClassifierApplier(
             updated++
         }
         return updated
+    }
+
+    companion object {
+        private const val CLASSIFICATION_SCAN_LIMIT = 500
     }
 }

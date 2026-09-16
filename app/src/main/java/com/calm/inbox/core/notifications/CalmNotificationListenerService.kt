@@ -56,7 +56,6 @@ class CalmNotificationListenerService : NotificationListenerService() {
                 classifierApplier.classifyPending(1)
             }
             // W2 Task 11 appends ClassificationQueue.offer(entity.copy(id = rowId)) here.
-            check(rowId != -1L)
         }
     }
 

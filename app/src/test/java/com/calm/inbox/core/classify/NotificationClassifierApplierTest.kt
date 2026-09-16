@@ -73,6 +73,21 @@ class NotificationClassifierApplierTest {
     }
 
     @Test
+    fun unknownOlderNotificationDoesNotConsumeTheUpdateBudget() = runTest {
+        insert("unknown.pkg", "unknown")
+        val knownId = insert("com.eg.android.AlipayGphone", "alipay")
+
+        val updated = applier.classifyPending(limit = 1)
+
+        assertThat(updated).isEqualTo(1)
+        val known = database.notificationDao().observeAll().first()
+            .single { it.id == knownId }
+        assertThat(known.category).isEqualTo("FINANCE")
+        assertThat(database.notificationDao().getUnclassified(10).single().packageName)
+            .isEqualTo("unknown.pkg")
+    }
+
+    @Test
     fun repeatedCallDoesNotUpdateClassifiedRows() = runTest {
         insert("com.eg.android.AlipayGphone", "alipay")
         applier.classifyPending()
