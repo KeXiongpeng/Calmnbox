@@ -2,6 +2,7 @@ package com.calm.inbox.di
 
 import android.content.Context
 import androidx.room.Room
+import com.calm.inbox.core.classify.RuleEngine
 import com.calm.inbox.core.database.AppDatabase
 import com.calm.inbox.core.database.dao.BriefDao
 import com.calm.inbox.core.database.dao.ChatMessageDao
@@ -34,6 +35,10 @@ object AppModule {
     @Singleton
     fun provideNotificationEntityFactory(clock: Clock): NotificationEntityFactory =
         NotificationEntityFactory(clock)
+
+    @Provides
+    @Singleton
+    fun provideRuleEngine(): RuleEngine = RuleEngine()
 
     @Provides
     fun provideNotificationDao(database: AppDatabase): NotificationDao =
