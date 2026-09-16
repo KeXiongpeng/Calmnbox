@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.room.ktx)
     implementation(libs.work.runtime.ktx)
     implementation(libs.datastore.preferences)
+    implementation(libs.okhttp)
     kapt(libs.hilt.compiler)
     kapt(libs.androidx.hilt.compiler)
     kapt(libs.room.compiler)
