@@ -7,9 +7,12 @@ import com.calm.inbox.core.database.dao.ChatMessageDao
 import com.calm.inbox.core.database.dao.NotificationDao
 import com.calm.inbox.core.database.entity.ChatMessageEntity
 import com.calm.inbox.core.database.entity.NotificationEntity
+import com.calm.inbox.core.model.EngineHolder
 import com.calm.inbox.core.model.FakeLlmEngine
+import com.calm.inbox.core.notifications.NotificationAccessMonitor
 import com.google.common.truth.Truth.assertThat
 import java.time.Clock
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -49,7 +52,11 @@ class ChatViewModelTest {
                 emit(ChatEvent.Done(listOf(Citation(7L, "登录验证码"))))
             }
         )
-        val viewModel = ChatViewModel(repository)
+        val viewModel = ChatViewModel(
+            repository,
+            readiness(backgroundScope),
+            NotificationAccessMonitor(isGranted = { true })
+        )
 
         viewModel.ask("第一问")
         assertThat(viewModel.streamingAnswer.value).isEqualTo("旧")
@@ -73,7 +80,11 @@ class ChatViewModelTest {
             createdAt = 1_000L
         )
         val repository = FakeChatRepository()
-        val viewModel = ChatViewModel(repository)
+        val viewModel = ChatViewModel(
+            repository,
+            readiness(backgroundScope),
+            NotificationAccessMonitor(isGranted = { true })
+        )
 
         viewModel.history.test {
             assertThat(awaitItem()).isEmpty()
@@ -81,6 +92,16 @@ class ChatViewModelTest {
             assertThat(awaitItem()).containsExactly(message)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    private fun readiness(scope: CoroutineScope): EngineReadiness {
+        val engine = FakeLlmEngine()
+        return EngineReadiness(
+            isModelReady = { true },
+            modelPath = { "/models/qwen" },
+            engine = engine,
+            holder = EngineHolder(engine, scope)
+        )
     }
 
     private class FakeNotificationDao : NotificationDao {

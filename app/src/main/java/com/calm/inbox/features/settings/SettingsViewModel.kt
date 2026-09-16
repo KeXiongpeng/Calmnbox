@@ -2,19 +2,18 @@ package com.calm.inbox.features.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calm.inbox.core.notifications.NotificationAccessMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
-    private val accessChecker: NotificationAccessChecker,
+    notificationAccessMonitor: NotificationAccessMonitor,
     latencyRecorder: LatencyRecorder
 ) : ViewModel() {
 
@@ -22,13 +21,18 @@ class SettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, setOf(SettingsRepository.SELF_PACKAGE))
 
     val noiseThreshold: StateFlow<Int> = repository.noiseThreshold
-        .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_NOISE_THRESHOLD)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            SettingsRepository.DEFAULT_NOISE_THRESHOLD
+        )
 
     val firstTokenLatency: StateFlow<LatencyStats?> = latencyRecorder.stats()
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    private val mutableNotificationAccessGranted = MutableStateFlow(accessChecker.isGranted())
-    val notificationAccessGranted: StateFlow<Boolean> = mutableNotificationAccessGranted.asStateFlow()
+    val notificationAccessGranted: StateFlow<Boolean> = notificationAccessMonitor
+        .observe()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun addPackage(rawPackage: String) {
         viewModelScope.launch { repository.addBlacklist(rawPackage) }
@@ -40,9 +44,5 @@ class SettingsViewModel @Inject constructor(
 
     fun setNoiseThreshold(value: Int) {
         viewModelScope.launch { repository.setNoiseThreshold(value) }
-    }
-
-    fun refreshPermission() {
-        mutableNotificationAccessGranted.value = accessChecker.isGranted()
     }
 }

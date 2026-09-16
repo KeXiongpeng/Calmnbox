@@ -1,4 +1,4 @@
-package com.calm.inbox.features.chat
+﻿package com.calm.inbox.features.chat
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,12 +37,16 @@ import com.calm.inbox.core.database.entity.ChatMessageEntity
 @Composable
 fun ChatScreen(
     onCitationClick: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val history by viewModel.history.collectAsStateWithLifecycle()
     val streamingAnswer by viewModel.streamingAnswer.collectAsStateWithLifecycle()
     val citations by viewModel.citations.collectAsStateWithLifecycle()
     val isStreaming by viewModel.isStreaming.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val notificationAccessGranted by viewModel.notificationAccessGranted
+        .collectAsStateWithLifecycle()
     var question by remember { mutableStateOf("") }
 
     Column(
@@ -49,6 +54,16 @@ fun ChatScreen(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
+        if (!notificationAccessGranted) {
+            PermissionLostBanner(onOpenSettings = onOpenSettings)
+        }
+        RecoveryBanner(
+            state = uiState,
+            isStreaming = isStreaming,
+            onOpenSettings = onOpenSettings,
+            onRetry = viewModel::retry
+        )
+
         if (history.isEmpty() && streamingAnswer.isBlank()) {
             Box(
                 modifier = Modifier
@@ -122,6 +137,82 @@ fun ChatScreen(
 }
 
 @Composable
+private fun PermissionLostBanner(onOpenSettings: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "通知访问权限已关闭",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(
+                text = "重新授权后，CalmInbox 才能继续读取本地通知。",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Button(onClick = onOpenSettings) {
+                Text("去设置")
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecoveryBanner(
+    state: ChatUiState,
+    isStreaming: Boolean,
+    onOpenSettings: () -> Unit,
+    onRetry: () -> Unit
+) {
+    if (state.precondition == ChatPrecondition.Ready) return
+    val message = state.userMessage ?: return
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (state.precondition == ChatPrecondition.NeedsModel) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.errorContainer
+            },
+            contentColor = if (state.precondition == ChatPrecondition.NeedsModel) {
+                MaterialTheme.colorScheme.onSecondaryContainer
+            } else {
+                MaterialTheme.colorScheme.onErrorContainer
+            }
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(message, style = MaterialTheme.typography.bodyMedium)
+            Button(
+                onClick = if (state.precondition == ChatPrecondition.NeedsModel) {
+                    onOpenSettings
+                } else {
+                    onRetry
+                },
+                enabled = !isStreaming
+            ) {
+                Text(
+                    if (state.precondition == ChatPrecondition.NeedsModel) {
+                        "下载模型"
+                    } else {
+                        "重试"
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun MessageBubble(
     message: ChatMessageEntity,
     onCitationClick: (Long) -> Unit
@@ -183,9 +274,7 @@ private fun StreamingBubble(
             ) {
                 Text(answer, style = MaterialTheme.typography.bodyMedium)
                 if (citations.isNotEmpty()) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         citations.forEach { citation ->
                             FilterChip(
                                 selected = false,

@@ -34,11 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
@@ -51,17 +48,6 @@ fun SettingsScreen(
     val latencyStats by viewModel.firstTokenLatency.collectAsStateWithLifecycle()
     var newPackage by remember { mutableStateOf("") }
     val context = LocalContext.current
-
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.refreshPermission()
-    }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            viewModel.refreshPermission()
-            delay(1_000)
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -101,7 +87,6 @@ fun SettingsScreen(
                         onClick = {
                             viewModel.addPackage(newPackage)
                             newPackage = ""
-                            viewModel.refreshPermission()
                         },
                         enabled = newPackage.isNotBlank()
                     ) {

@@ -11,7 +11,12 @@ import com.calm.inbox.core.database.AppDatabase
 import com.calm.inbox.core.database.dao.BriefDao
 import com.calm.inbox.core.database.dao.ChatMessageDao
 import com.calm.inbox.core.database.dao.NotificationDao
+import com.calm.inbox.core.model.EngineHolder
+import com.calm.inbox.core.model.LlmEngine
+import com.calm.inbox.core.model.ModelManager
+import com.calm.inbox.core.notifications.NotificationAccessMonitor
 import com.calm.inbox.core.notifications.NotificationEntityFactory
+import com.calm.inbox.features.chat.EngineReadiness
 import com.calm.inbox.features.settings.NotificationAccessChecker
 import com.calm.inbox.features.settings.SettingsRepository
 import dagger.Module
@@ -55,6 +60,25 @@ object AppModule {
     @Provides
     @Singleton
     fun provideClock(): Clock = Clock.systemDefaultZone()
+
+    @Provides
+    @Singleton
+    fun provideNotificationAccessMonitor(
+        checker: NotificationAccessChecker
+    ): NotificationAccessMonitor = NotificationAccessMonitor(checker::isGranted)
+
+    @Provides
+    @Singleton
+    fun provideEngineReadiness(
+        modelManager: ModelManager,
+        engine: LlmEngine,
+        holder: EngineHolder
+    ): EngineReadiness = EngineReadiness(
+        isModelReady = modelManager::isModelReady,
+        modelPath = { modelManager.modelDir().absolutePath },
+        engine = engine,
+        holder = holder
+    )
 
     @Provides
     @Singleton

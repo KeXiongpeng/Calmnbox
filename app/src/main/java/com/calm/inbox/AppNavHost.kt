@@ -76,7 +76,8 @@ fun AppNavHost(
                         navController.navigate("inbox?notificationId=$notificationId") {
                             launchSingleTop = true
                         }
-                    }
+                    },
+                    onOpenSettings = { navController.navigateSingleTop("settings") }
                 )
             }
             composable("settings") { SettingsScreen() }

@@ -3,9 +3,8 @@ package com.calm.inbox.features.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
+import com.calm.inbox.core.notifications.NotificationAccessMonitor
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +12,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.test.runTest
@@ -58,13 +58,12 @@ class SettingsViewModelTest {
         scope.cancel()
     }
 
-    private fun viewModelWithPermission(granted: Boolean): SettingsViewModel {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val checker = object : NotificationAccessChecker(context) {
-            override fun isGranted(): Boolean = granted
-        }
-        return SettingsViewModel(repository, checker, LatencyRecorder(dataStore, scope))
-    }
+    private fun viewModelWithPermission(granted: Boolean): SettingsViewModel =
+        SettingsViewModel(
+            repository,
+            NotificationAccessMonitor(isGranted = { granted }),
+            LatencyRecorder(dataStore, scope)
+        )
 
     @Test
     fun exposesInitialSettingsAndPermission() = runTest {
@@ -113,18 +112,18 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun permissionStateCanBeRefreshed() = runTest {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+    fun permissionStateFollowsMonitor() = runTest {
         var granted = false
-        val checker = object : NotificationAccessChecker(context) {
-            override fun isGranted(): Boolean = granted
-        }
-        viewModel = SettingsViewModel(repository, checker, LatencyRecorder(dataStore, scope))
+        viewModel = SettingsViewModel(
+            repository,
+            NotificationAccessMonitor(isGranted = { granted }),
+            LatencyRecorder(dataStore, scope)
+        )
 
         viewModel.notificationAccessGranted.test {
             assertThat(awaitItem()).isFalse()
             granted = true
-            viewModel.refreshPermission()
+            advanceTimeBy(1_000)
             assertThat(awaitItem()).isTrue()
             cancelAndIgnoreRemainingEvents()
         }
