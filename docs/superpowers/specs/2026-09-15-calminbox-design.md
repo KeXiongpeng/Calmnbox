@@ -35,10 +35,10 @@
 | 1 | 通知接入与存储 | NotificationListenerService 监听 → 规则过滤（包名黑白名单）→ Room 入库，去重（pkg+time+title hash） |
 | 2 | AI 打标分类 | 规则引擎先行（包名映射类目），LLM 批量兜底：输出分类目 + 重要度 1~5 + 一句话摘要 |
 | 3 | 每日简报 | WorkManager 22:00 触发，端侧生成「今日重要事项 Top5 + 分类统计」，存库并本地通知推送 |
-| 4 | 自然语言问答 | 聊天界面，FTS + 时间过滤检索通知，端侧流式回答（如「我的验证码是多少」），答案附可跳转的引用来源 |
+| 4 | 自然语言问答 | 聊天界面，关键词检索（LIKE，FTS 默认分词器不支持中文，列入二期）+ 时间过滤检索通知，端侧流式回答（如「我的验证码是多少」），答案附可跳转的引用来源 |
 | 5 | 降噪模式 | 营销/低重要度通知自动折叠聚合展示 |
 
-**明确不做（本期 YAGNI）**：短信读取（二期）、云端模型与账号系统、embedding 式 RAG（二期，本期用 FTS）、iOS、多模块拆分工程。
+**明确不做（本期 YAGNI）**：短信读取（二期）、云端模型与账号系统、embedding 式 RAG 与 FTS 全文索引（二期，本期用 LIKE 关键词检索）、iOS、多模块拆分工程。
 
 ## 4. 技术架构
 
@@ -47,7 +47,7 @@
 - Kotlin 2.x + Jetpack Compose + Material 3；单 Activity + Navigation；Hilt 依赖注入
 - MNN Android LLM SDK，JNI 封装为 `LlmEngine`（加载 / 流式推理 / 空闲超时释放）
 - 主力模型：Qwen2.5-1.5B-Instruct int4（约 1GB）；预留 Qwen3 系列对比基准
-- Room（通知表 + FTS 虚表 + 会话表）、WorkManager、DataStore
+- Room（通知表 + 会话表；检索用 LIKE 关键词匹配）、WorkManager、DataStore
 - 模型分发：首启从 ModelScope 下载，设置页管理（进度 / 删除）
 
 ### 4.2 包结构（分层不拆模块）

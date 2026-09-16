@@ -34,7 +34,7 @@ Install on a connected device:
 .\gradlew.bat :app:installDebug
 ~~~
 
-After first launch, open **Settings → Notification access** and grant CalmInbox access. The app does not request Internet access for W1 classification; notification content is processed only on-device.
+After first launch, open **Settings → Notification access** and grant CalmInbox access. W1 rule classification and W2 brief fallback work offline. Model download requires network only when explicitly used; notification content is processed only on-device.
 
 ## Local data model
 
@@ -48,7 +48,7 @@ Notification access can be granted in **Android system Settings → Notification
 
 ## Privacy
 
-CalmInbox stores notifications in a local Room database. It has no account system and no cloud model upload. The local MNN model and AI classification are introduced in W2; W1 remains fully usable with deterministic rules.
+CalmInbox stores notifications in a local Room database. It has no account system and no cloud model upload. W2 adds the local MNN inference path. No cloud model or account system is used.
 
 ## Roadmap
 
