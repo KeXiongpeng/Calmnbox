@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
+import com.calm.inbox.core.classify.NotificationClassifierApplier
 import com.calm.inbox.core.classify.RuleEngine
 import com.calm.inbox.core.database.AppDatabase
 import com.calm.inbox.core.database.dao.BriefDao
@@ -63,6 +64,13 @@ object AppModule {
     @Provides
     @Singleton
     fun provideRuleEngine(): RuleEngine = RuleEngine()
+
+    @Provides
+    @Singleton
+    fun provideNotificationClassifierApplier(
+        dao: NotificationDao,
+        rules: RuleEngine
+    ): NotificationClassifierApplier = NotificationClassifierApplier(dao, rules)
 
     @Provides
     fun provideNotificationDao(database: AppDatabase): NotificationDao =

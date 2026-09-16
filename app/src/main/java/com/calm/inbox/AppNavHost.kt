@@ -22,6 +22,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.calm.inbox.features.inbox.InboxScreen
 import com.calm.inbox.features.settings.SettingsScreen
 
 @Composable
@@ -54,7 +55,7 @@ fun AppNavHost(
             startDestination = "inbox",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("inbox") { RouteScaffold("inbox", "Task 6") }
+            composable("inbox") { InboxScreen() }
             composable("brief") { RouteScaffold("brief", "W2 Task 13") }
             composable("chat") { RouteScaffold("chat", "W3 Task 15") }
             composable("settings") { SettingsScreen() }

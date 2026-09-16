@@ -3,6 +3,7 @@ package com.calm.inbox.core.notifications
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.calm.inbox.core.classify.NotificationClassifierApplier
 import com.calm.inbox.core.database.dao.NotificationDao
 import com.calm.inbox.features.settings.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -20,6 +21,7 @@ class CalmNotificationListenerService : NotificationListenerService() {
     @Inject lateinit var dao: NotificationDao
     @Inject lateinit var factory: NotificationEntityFactory
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var classifierApplier: NotificationClassifierApplier
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -50,6 +52,9 @@ class CalmNotificationListenerService : NotificationListenerService() {
                 blacklist = blacklist
             ) ?: return@launch
             val rowId = dao.insert(entity)
+            if (rowId != -1L) {
+                classifierApplier.classifyPending(1)
+            }
             // W2 Task 11 appends ClassificationQueue.offer(entity.copy(id = rowId)) here.
             check(rowId != -1L)
         }
