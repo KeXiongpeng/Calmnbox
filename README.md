@@ -1,5 +1,7 @@
 # CalmInbox
 
+![Android CI](https://github.com/KeXiongpeng/Calmnbox/actions/workflows/android.yml/badge.svg)
+
 安心收件箱是一个端侧 AI 通知管家：接管 Android 通知流，用本地模型自动分类降噪、生成每日简报，并支持基于本地通知的自然语言问答。所有通知数据与推理都留在手机上，全程零上传。
 
 ## Current status: W1 native loop
@@ -35,6 +37,10 @@ Install on a connected device:
 ~~~
 
 After first launch, open **Settings → Notification access** and grant CalmInbox access. W1 rule classification and W2 brief fallback work offline. Model download requires network only when explicitly used; notification content is processed only on-device.
+
+## Release APK signing
+
+CI builds an installable Release APK for `v*` tags. For the MVP portfolio build, that APK is signed with the Android debug key; this is suitable for real-device testing only. Replace it with a private release signing key before any store or long-term distribution.
 
 ## Local data model
 

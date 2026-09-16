@@ -1,0 +1,146 @@
+name: Android CI
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+env:
+  MNN_VERSION: '3.6.1'
+  MNN_ANDROID_ASSET: mnn_3.6.1_android_armv7_armv8_cpu_opencl_vulkan.zip
+  MNN_ANDROID_SHA256: 46DC7E86D45B8D4E957DB81D2603E0B7F6C9CE9B84092FFDCEE1B843CBFC9D71
+
+jobs:
+  verify:
+    name: Lint, test, and build debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        run: >
+          sdkmanager --install
+          "platforms;android-34"
+          "build-tools;34.0.0"
+          "ndk;26.1.10909125"
+          "cmake;3.22.1"
+
+      - name: Prepare checksum-verified MNN Android SDK
+        run: |
+          set -euo pipefail
+          mnn_root="app/src/main/libs/mnn-android"
+          mkdir -p "${mnn_root}/include" "${mnn_root}/libs"
+          curl --fail --location --retry 3 \
+            "https://github.com/alibaba/MNN/releases/download/${MNN_VERSION}/${MNN_ANDROID_ASSET}" \
+            -o /tmp/mnn-android.zip
+          echo "${MNN_ANDROID_SHA256}  /tmp/mnn-android.zip" | sha256sum --check -
+          unzip -q /tmp/mnn-android.zip -d /tmp/mnn-android
+          cp -a "/tmp/mnn-android/mnn_${MNN_VERSION}_android_armv7_armv8_cpu_opencl_vulkan/arm64-v8a" \
+            "${mnn_root}/libs/"
+          git clone --depth 1 --branch "${MNN_VERSION}" --filter=blob:none --sparse \
+            https://github.com/alibaba/MNN.git /tmp/MNN
+          git -C /tmp/MNN sparse-checkout set include transformers/llm/engine/include/llm
+          cp -a /tmp/MNN/include/MNN "${mnn_root}/include/"
+          cp /tmp/MNN/transformers/llm/engine/include/llm/llm.hpp "${mnn_root}/include/"
+
+      - name: Grant Gradle wrapper execute permission
+        run: chmod +x ./gradlew
+
+      - name: Lint
+        run: ./gradlew lintDebug
+
+      - name: Unit test
+        run: ./gradlew testDebugUnitTest
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: calm-inbox-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  release:
+    name: Attach release APK
+    needs: verify
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        run: >
+          sdkmanager --install
+          "platforms;android-34"
+          "build-tools;34.0.0"
+          "ndk;26.1.10909125"
+          "cmake;3.22.1"
+
+      - name: Prepare checksum-verified MNN Android SDK
+        run: |
+          set -euo pipefail
+          mnn_root="app/src/main/libs/mnn-android"
+          mkdir -p "${mnn_root}/include" "${mnn_root}/libs"
+          curl --fail --location --retry 3 \
+            "https://github.com/alibaba/MNN/releases/download/${MNN_VERSION}/${MNN_ANDROID_ASSET}" \
+            -o /tmp/mnn-android.zip
+          echo "${MNN_ANDROID_SHA256}  /tmp/mnn-android.zip" | sha256sum --check -
+          unzip -q /tmp/mnn-android.zip -d /tmp/mnn-android
+          cp -a "/tmp/mnn-android/mnn_${MNN_VERSION}_android_armv7_armv8_cpu_opencl_vulkan/arm64-v8a" \
+            "${mnn_root}/libs/"
+          git clone --depth 1 --branch "${MNN_VERSION}" --filter=blob:none --sparse \
+            https://github.com/alibaba/MNN.git /tmp/MNN
+          git -C /tmp/MNN sparse-checkout set include transformers/llm/engine/include/llm
+          cp -a /tmp/MNN/include/MNN "${mnn_root}/include/"
+          cp /tmp/MNN/transformers/llm/engine/include/llm/llm.hpp "${mnn_root}/include/"
+
+      - name: Grant Gradle wrapper execute permission
+        run: chmod +x ./gradlew
+
+      - name: Assemble release APK
+        run: ./gradlew assembleRelease
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: calm-inbox-release
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/app-release.apk
+          generate_release_notes: true
