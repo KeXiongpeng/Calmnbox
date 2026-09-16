@@ -7,3 +7,5 @@ local.properties
 captures/
 .tools/
 artifacts/
+app/src/main/libs/
+app/.cxx/
