@@ -1,8 +1,5 @@
 package com.calm.inbox
 
-import com.calm.inbox.features.brief.BriefScreen
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
@@ -15,14 +12,17 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.calm.inbox.features.brief.BriefScreen
+import com.calm.inbox.features.chat.ChatScreen
 import com.calm.inbox.features.inbox.InboxScreen
 import com.calm.inbox.features.settings.SettingsScreen
 
@@ -32,7 +32,7 @@ fun AppNavHost(
     modifier: Modifier = Modifier
 ) {
     val backStackEntry = navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry.value?.destination?.route
+    val currentRoute = backStackEntry.value?.destination?.route?.substringBefore('?')
 
     Scaffold(
         modifier = modifier,
@@ -41,7 +41,9 @@ fun AppNavHost(
                 BottomDestination.entries.forEach { destination ->
                     NavigationBarItem(
                         selected = currentRoute == destination.route,
-                        onClick = { navController.navigateSingleTop(destination.route) },
+                        onClick = {
+                            navController.navigateSingleTop(destination.route)
+                        },
                         icon = {
                             Icon(destination.icon, contentDescription = destination.label)
                         },
@@ -56,9 +58,27 @@ fun AppNavHost(
             startDestination = "inbox",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("inbox") { InboxScreen() }
+            composable(
+                route = "inbox?notificationId={notificationId}",
+                arguments = listOf(
+                    navArgument("notificationId") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    }
+                )
+            ) {
+                InboxScreen()
+            }
             composable("brief") { BriefScreen() }
-            composable("chat") { RouteScaffold("chat", "W3 Task 15") }
+            composable("chat") {
+                ChatScreen(
+                    onCitationClick = { notificationId ->
+                        navController.navigate("inbox?notificationId=$notificationId") {
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
             composable("settings") { SettingsScreen() }
         }
     }
@@ -82,15 +102,5 @@ private fun NavHostController.navigateSingleTop(route: String) {
             saveState = true
         }
         restoreState = true
-    }
-}
-
-@Composable
-private fun RouteScaffold(route: String, owner: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = "route=$route; owner=$owner")
     }
 }

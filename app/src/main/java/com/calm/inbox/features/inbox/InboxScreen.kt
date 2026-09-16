@@ -1,5 +1,6 @@
 package com.calm.inbox.features.inbox
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -15,7 +17,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -29,6 +33,24 @@ fun InboxScreen(
     viewModel: InboxViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val highlightIndex = remember(state.important, state.noiseGroups, viewModel.highlightId) {
+        val importantIndex = state.important.indexOfFirst { it.id == viewModel.highlightId }
+        if (importantIndex >= 0) {
+            importantIndex
+        } else {
+            val noiseIndex = state.noiseGroups.indexOfFirst { group ->
+                group.notifications.any { it.id == viewModel.highlightId }
+            }
+            if (noiseIndex >= 0) state.important.size + noiseIndex else -1
+        }
+    }
+
+    LaunchedEffect(highlightIndex) {
+        if (highlightIndex >= 0) {
+            listState.animateScrollToItem(highlightIndex)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -54,16 +76,21 @@ fun InboxScreen(
             EmptyInbox()
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(state.important, key = { "important-" + it.id }) { notification ->
-                    ImportantNotificationCard(notification)
+                    ImportantNotificationCard(
+                        notification = notification,
+                        highlighted = notification.id == viewModel.highlightId
+                    )
                 }
                 items(state.noiseGroups, key = { "noise-" + it.category }) { group ->
                     NoiseGroupCard(
                         group = group,
                         expanded = group.category in state.expandedNoiseCategories,
+                        highlightId = viewModel.highlightId,
                         onToggle = { viewModel.toggleNoise(group.category) }
                     )
                 }
@@ -84,8 +111,25 @@ private fun EmptyInbox() {
 }
 
 @Composable
-private fun ImportantNotificationCard(notification: NotificationEntity) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun ImportantNotificationCard(
+    notification: NotificationEntity,
+    highlighted: Boolean
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (highlighted) {
+                    Modifier.border(
+                        width = 2.dp,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        shape = MaterialTheme.shapes.medium
+                    )
+                } else {
+                    Modifier
+                }
+            )
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -96,9 +140,18 @@ private fun ImportantNotificationCard(notification: NotificationEntity) {
                 Text(notification.summary, style = MaterialTheme.typography.bodyMedium)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(categoryLabel(notification.category), style = MaterialTheme.typography.labelSmall)
-                Text("重要度 " + notification.importance, style = MaterialTheme.typography.labelSmall)
-                Text(relativeTime(notification.postedAt), style = MaterialTheme.typography.labelSmall)
+                Text(
+                    categoryLabel(notification.category),
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Text(
+                    "重要度 " + notification.importance,
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Text(
+                    relativeTime(notification.postedAt),
+                    style = MaterialTheme.typography.labelSmall
+                )
             }
         }
     }
@@ -108,6 +161,7 @@ private fun ImportantNotificationCard(notification: NotificationEntity) {
 private fun NoiseGroupCard(
     group: NoiseGroup,
     expanded: Boolean,
+    highlightId: Long,
     onToggle: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -117,7 +171,7 @@ private fun NoiseGroupCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(categoryLabel(group.category), style = MaterialTheme.typography.titleMedium)
+                    Text(group.category, style = MaterialTheme.typography.titleMedium)
                     Text(
                         group.count.toString() + " 条 · 最新：" + group.latestTitle,
                         style = MaterialTheme.typography.bodySmall
@@ -130,15 +184,32 @@ private fun NoiseGroupCard(
             if (expanded) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 group.notifications.forEach { notification ->
-                    Column(
-                        modifier = Modifier.padding(vertical = 6.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .then(
+                                if (notification.id == highlightId) {
+                                    Modifier.border(
+                                        width = 2.dp,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        shape = MaterialTheme.shapes.medium
+                                    )
+                                } else {
+                                    Modifier
+                                }
+                            )
                     ) {
-                        Text(notification.title, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            notification.appName + " · " + relativeTime(notification.postedAt),
-                            style = MaterialTheme.typography.labelSmall
-                        )
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(notification.title, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                notification.appName + " · " + relativeTime(notification.postedAt),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
                 }
             }

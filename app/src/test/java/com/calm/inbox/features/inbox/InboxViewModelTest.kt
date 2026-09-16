@@ -1,6 +1,7 @@
 package com.calm.inbox.features.inbox
 
 import android.content.Context
+import androidx.lifecycle.SavedStateHandle
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
@@ -97,7 +98,7 @@ class InboxViewModelTest {
         insert("MARKETING", 4, 10L, "营销", "marketing")
         insert("SYSTEM", 1, 15L, "系统", "system")
         repository.setNoiseThreshold(1)
-        viewModel = InboxViewModel(database.notificationDao(), repository)
+        viewModel = InboxViewModel(database.notificationDao(), repository, SavedStateHandle())
 
         val state = viewModel.state.first { !it.isLoading }
 
@@ -110,7 +111,7 @@ class InboxViewModelTest {
     @Test
     fun toggleNoiseExpandsAndCollapsesCategory() = runTest {
         insert("MARKETING", 1, 10L, "营销", "marketing")
-        viewModel = InboxViewModel(database.notificationDao(), repository)
+        viewModel = InboxViewModel(database.notificationDao(), repository, SavedStateHandle())
         viewModel.state.first { !it.isLoading }
 
         viewModel.toggleNoise("MARKETING")
@@ -124,7 +125,7 @@ class InboxViewModelTest {
     fun selectChangesOnlyVisibleUiFilter() = runTest {
         val verification = insert("VERIFICATION", 5, 30L, "验证码", "verification")
         insert("MARKETING", 1, 10L, "营销", "marketing")
-        viewModel = InboxViewModel(database.notificationDao(), repository)
+        viewModel = InboxViewModel(database.notificationDao(), repository, SavedStateHandle())
         viewModel.state.first { !it.isLoading }
 
         viewModel.select(InboxFilter.NOISY)
@@ -139,6 +140,23 @@ class InboxViewModelTest {
         assertThat(viewModel.state.first().important.map { it.id }).containsExactly(verification)
         assertThat(viewModel.state.first().noiseGroups).isEmpty()
     }
+    @Test
+    fun highlightIdReadsOptionalSavedStateArgument() = runTest {
+        viewModel = InboxViewModel(
+            database.notificationDao(),
+            repository,
+            SavedStateHandle(mapOf("notificationId" to 7L))
+        )
+        assertThat(viewModel.highlightId).isEqualTo(7L)
+
+        viewModel = InboxViewModel(
+            database.notificationDao(),
+            repository,
+            SavedStateHandle()
+        )
+        assertThat(viewModel.highlightId).isEqualTo(-1L)
+    }
+
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

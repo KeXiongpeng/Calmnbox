@@ -1,17 +1,18 @@
 package com.calm.inbox.features.inbox
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calm.inbox.core.database.dao.NotificationDao
 import com.calm.inbox.core.database.entity.NotificationEntity
 import com.calm.inbox.features.settings.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import javax.inject.Inject
 
 enum class InboxFilter(val label: String) {
     ALL("全部"),
@@ -37,8 +38,11 @@ data class InboxState(
 @HiltViewModel
 class InboxViewModel @Inject constructor(
     notificationDao: NotificationDao,
-    settingsRepository: SettingsRepository
+    settingsRepository: SettingsRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    val highlightId: Long = savedStateHandle.get<Long>("notificationId") ?: -1L
 
     private val selectedFilter = MutableStateFlow(InboxFilter.ALL)
     private val expandedNoiseCategories = MutableStateFlow(emptySet<String>())
@@ -70,7 +74,10 @@ class InboxViewModel @Inject constructor(
     ): InboxState {
         val important = notifications
             .filter { it.category != "MARKETING" && it.importance > threshold }
-            .sortedWith(compareByDescending<NotificationEntity> { it.importance }.thenByDescending { it.postedAt })
+            .sortedWith(
+                compareByDescending<NotificationEntity> { it.importance }
+                    .thenByDescending { it.postedAt }
+            )
 
         val noise = notifications
             .filter { it.category == "MARKETING" || it.importance <= threshold }
