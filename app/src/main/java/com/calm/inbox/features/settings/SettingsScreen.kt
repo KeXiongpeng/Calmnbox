@@ -48,6 +48,7 @@ fun SettingsScreen(
     val blacklist by viewModel.blacklist.collectAsStateWithLifecycle()
     val noiseThreshold by viewModel.noiseThreshold.collectAsStateWithLifecycle()
     val permissionGranted by viewModel.notificationAccessGranted.collectAsStateWithLifecycle()
+    val latencyStats by viewModel.firstTokenLatency.collectAsStateWithLifecycle()
     var newPackage by remember { mutableStateOf("") }
     val context = LocalContext.current
 
@@ -125,6 +126,8 @@ fun SettingsScreen(
             }
         }
 
+        BenchmarkCard(latencyStats)
+
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("降噪阈值", style = MaterialTheme.typography.titleMedium)
@@ -177,6 +180,31 @@ private fun PermissionCard(
             if (!granted) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(onClick = onOpenSettings) { Text("打开系统设置") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BenchmarkCard(stats: LatencyStats?) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("模型基准（首 token 延迟）", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            if (stats == null) {
+                Text(
+                    "暂无样本。模型加载并完成一次推理后，这里会显示最近 20 次首 token 延迟。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                Text(
+                    "最近：" + stats.latestMs + " ms｜平均：" + stats.averageMs + " ms｜样本：" + stats.sampleCount,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    "目标：< 3000 ms",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }

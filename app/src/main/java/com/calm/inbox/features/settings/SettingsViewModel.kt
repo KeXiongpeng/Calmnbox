@@ -14,7 +14,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
-    private val accessChecker: NotificationAccessChecker
+    private val accessChecker: NotificationAccessChecker,
+    latencyRecorder: LatencyRecorder
 ) : ViewModel() {
 
     val blacklist: StateFlow<Set<String>> = repository.blacklist
@@ -22,6 +23,9 @@ class SettingsViewModel @Inject constructor(
 
     val noiseThreshold: StateFlow<Int> = repository.noiseThreshold
         .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_NOISE_THRESHOLD)
+
+    val firstTokenLatency: StateFlow<LatencyStats?> = latencyRecorder.stats()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val mutableNotificationAccessGranted = MutableStateFlow(accessChecker.isGranted())
     val notificationAccessGranted: StateFlow<Boolean> = mutableNotificationAccessGranted.asStateFlow()

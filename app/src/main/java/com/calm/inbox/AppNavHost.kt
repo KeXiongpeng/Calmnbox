@@ -1,5 +1,6 @@
 package com.calm.inbox
 
+import com.calm.inbox.features.brief.BriefScreen
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -56,7 +57,7 @@ fun AppNavHost(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("inbox") { InboxScreen() }
-            composable("brief") { RouteScaffold("brief", "W2 Task 13") }
+            composable("brief") { BriefScreen() }
             composable("chat") { RouteScaffold("chat", "W3 Task 15") }
             composable("settings") { SettingsScreen() }
         }

@@ -9,10 +9,11 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
-class MnnLlmEngine internal constructor(
-    private val nativeCreate: (String) -> Long = MnnNative::create,
-    private val nativeGenerate: (Long, String, MnnNative.StreamListener) -> Unit = MnnNative::generate,
-    private val nativeRelease: (Long) -> Unit = MnnNative::release
+class MnnLlmEngine(
+    private val nativeCreate: (String) -> Long = { path -> MnnNative.create(path) },
+    private val nativeGenerate: (Long, String, MnnNative.StreamListener) -> Unit =
+        { ptr, prompt, listener -> MnnNative.generate(ptr, prompt, listener) },
+    private val nativeRelease: (Long) -> Unit = { ptr -> MnnNative.release(ptr) }
 ) : LlmEngine {
 
     private val _state = MutableStateFlow(EngineState.NOT_LOADED)

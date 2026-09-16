@@ -63,7 +63,7 @@ class SettingsViewModelTest {
         val checker = object : NotificationAccessChecker(context) {
             override fun isGranted(): Boolean = granted
         }
-        return SettingsViewModel(repository, checker)
+        return SettingsViewModel(repository, checker, LatencyRecorder(dataStore, scope))
     }
 
     @Test
@@ -119,7 +119,7 @@ class SettingsViewModelTest {
         val checker = object : NotificationAccessChecker(context) {
             override fun isGranted(): Boolean = granted
         }
-        viewModel = SettingsViewModel(repository, checker)
+        viewModel = SettingsViewModel(repository, checker, LatencyRecorder(dataStore, scope))
 
         viewModel.notificationAccessGranted.test {
             assertThat(awaitItem()).isFalse()

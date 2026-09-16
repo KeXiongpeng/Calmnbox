@@ -1,6 +1,6 @@
 package com.calm.inbox.core.model
 
-internal object MnnNative {
+object MnnNative {
     init {
         System.loadLibrary("calm_mnn")
     }
