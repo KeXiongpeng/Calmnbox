@@ -3,7 +3,10 @@ package com.calm.inbox.features.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
+import com.calm.inbox.core.model.DownloadState
+import com.calm.inbox.core.model.ModelManager
 import com.calm.inbox.core.notifications.NotificationAccessMonitor
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
@@ -11,6 +14,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -58,12 +63,78 @@ class SettingsViewModelTest {
         scope.cancel()
     }
 
-    private fun viewModelWithPermission(granted: Boolean): SettingsViewModel =
-        SettingsViewModel(
-            repository,
-            NotificationAccessMonitor(isGranted = { granted }),
-            LatencyRecorder(dataStore, scope)
+    private fun viewModelWithPermission(
+        granted: Boolean,
+        modelManager: FakeModelManager = FakeModelManager()
+    ): SettingsViewModel = SettingsViewModel(
+        repository,
+        NotificationAccessMonitor(isGranted = { granted }),
+        LatencyRecorder(dataStore, scope),
+        modelManager
+    )
+
+
+
+    @Test
+    fun modelStateReflectsInitialReadiness() = runTest {
+        val viewModel = viewModelWithPermission(
+            granted = true,
+            modelManager = FakeModelManager(initiallyReady = true)
         )
+
+        assertThat(viewModel.modelState.value.isReady).isTrue()
+        assertThat(viewModel.modelState.value.isDownloading).isFalse()
+    }
+
+    @Test
+    fun downloadModelEmitsProgressAndCompletes() = runTest {
+        val modelManager = FakeModelManager(
+            initiallyReady = false,
+            downloadStates = listOf(
+                DownloadState.Downloading(0.25f),
+                DownloadState.Downloading(0.75f),
+                DownloadState.Done(File("/models/qwen"))
+            )
+        )
+        val viewModel = viewModelWithPermission(true, modelManager)
+
+        viewModel.downloadModel()
+
+        assertThat(modelManager.downloadCalls).isEqualTo(1)
+        assertThat(viewModel.modelState.value.isReady).isTrue()
+        assertThat(viewModel.modelState.value.isDownloading).isFalse()
+        assertThat(viewModel.modelState.value.progress).isEqualTo(1f)
+        assertThat(viewModel.modelState.value.error).isNull()
+    }
+
+    @Test
+    fun downloadFailureStopsProgressAndShowsMessage() = runTest {
+        val modelManager = FakeModelManager(
+            downloadStates = listOf(
+                DownloadState.Downloading(0.4f),
+                DownloadState.Failed("network unavailable")
+            )
+        )
+        val viewModel = viewModelWithPermission(true, modelManager)
+
+        viewModel.downloadModel()
+
+        assertThat(viewModel.modelState.value.isDownloading).isFalse()
+        assertThat(viewModel.modelState.value.isReady).isFalse()
+        assertThat(viewModel.modelState.value.error).isEqualTo("network unavailable")
+    }
+
+    @Test
+    fun deleteModelUpdatesReadiness() = runTest {
+        val modelManager = FakeModelManager(initiallyReady = true)
+        val viewModel = viewModelWithPermission(true, modelManager)
+
+        viewModel.deleteModel()
+
+        assertThat(modelManager.deleteCalls).isEqualTo(1)
+        assertThat(viewModel.modelState.value.isReady).isFalse()
+        assertThat(viewModel.modelState.value.isDownloading).isFalse()
+    }
 
     @Test
     fun exposesInitialSettingsAndPermission() = runTest {
@@ -117,7 +188,8 @@ class SettingsViewModelTest {
         viewModel = SettingsViewModel(
             repository,
             NotificationAccessMonitor(isGranted = { granted }),
-            LatencyRecorder(dataStore, scope)
+            LatencyRecorder(dataStore, scope),
+            FakeModelManager()
         )
 
         viewModel.notificationAccessGranted.test {
@@ -128,6 +200,38 @@ class SettingsViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+    private class FakeModelManager(
+        private val initiallyReady: Boolean = false,
+        private val downloadStates: List<DownloadState> = listOf(
+            DownloadState.Done(File("/models/qwen"))
+        )
+    ) : ModelManager(ApplicationProvider.getApplicationContext(), object : com.calm.inbox.core.model.Downloader {
+        override fun download(url: String, dest: File): Flow<DownloadState> = flow { }
+    }) {
+        private var ready = initiallyReady
+        var downloadCalls = 0
+            private set
+        var deleteCalls = 0
+            private set
+
+        override fun isModelReady(): Boolean = ready
+
+        override fun downloadModel(): Flow<DownloadState> {
+            downloadCalls++
+            return flow {
+                downloadStates.forEach { emit(it) }
+                if (downloadStates.lastOrNull { it is DownloadState.Done } != null) {
+                    ready = true
+                }
+            }
+        }
+
+        override suspend fun deleteModel() {
+            deleteCalls++
+            ready = false
+        }
+    }
+
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

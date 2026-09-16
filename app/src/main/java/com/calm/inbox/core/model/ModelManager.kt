@@ -7,13 +7,13 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.File
 
-class ModelManager(
+open class ModelManager(
     private val context: Context,
     private val downloader: Downloader
 ) {
     fun modelDir(): File = File(context.filesDir, "models/$MODEL_DIR_NAME")
 
-    fun isModelReady(): Boolean {
+    open fun isModelReady(): Boolean {
         val dir = modelDir()
         if (!dir.isDirectory) return false
         if (!File(dir, "config.json").isFile) return false
@@ -21,7 +21,7 @@ class ModelManager(
         return totalBytes > MIN_MODEL_BYTES
     }
 
-    fun downloadModel(): Flow<DownloadState> = flow {
+    open fun downloadModel(): Flow<DownloadState> = flow {
         if (isModelReady()) {
             emit(DownloadState.Done(modelDir()))
             return@flow
@@ -56,7 +56,7 @@ class ModelManager(
         emit(DownloadState.Done(dir))
     }.flowOn(Dispatchers.IO)
 
-    suspend fun deleteModel() {
+    open suspend fun deleteModel() {
         modelDir().deleteRecursively()
     }
 

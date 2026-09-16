@@ -21,6 +21,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -45,6 +47,7 @@ fun SettingsScreen(
     val blacklist by viewModel.blacklist.collectAsStateWithLifecycle()
     val noiseThreshold by viewModel.noiseThreshold.collectAsStateWithLifecycle()
     val permissionGranted by viewModel.notificationAccessGranted.collectAsStateWithLifecycle()
+    val modelState by viewModel.modelState.collectAsStateWithLifecycle()
     val latencyStats by viewModel.firstTokenLatency.collectAsStateWithLifecycle()
     var newPackage by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -63,6 +66,12 @@ fun SettingsScreen(
                     Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
                 )
             }
+        )
+
+        ModelManagerCard(
+            state = modelState,
+            onDownload = viewModel::downloadModel,
+            onDelete = viewModel::deleteModel
         )
 
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -165,6 +174,59 @@ private fun PermissionCard(
             if (!granted) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(onClick = onOpenSettings) { Text("打开系统设置") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModelManagerCard(
+    state: ModelUiState,
+    onDownload: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("\u672c\u5730\u6a21\u578b", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = if (state.isReady) {
+                    "Qwen2.5-1.5B \u5df2\u4e0b\u8f7d\uff0c\u53ef\u5728\u672c\u673a\u5b8c\u6210\u5206\u7c7b\u3001\u7b80\u62a5\u548c\u95ee\u7b54\u3002"
+                } else {
+                    "\u4e0b\u8f7d Qwen2.5-1.5B Instruct int4 \u540e\uff0c\u624d\u80fd\u4f7f\u7528\u672c\u5730 AI \u80fd\u529b\u3002\u6a21\u578b\u7ea6 1GB\uff0c\u53ea\u5728\u4e3b\u52a8\u4e0b\u8f7d\u65f6\u8bbf\u95ee\u7f51\u7edc\u3002"
+                },
+                style = MaterialTheme.typography.bodySmall
+            )
+            if (state.isDownloading) {
+                LinearProgressIndicator(
+                    progress = { state.progress },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "\u4e0b\u8f7d\u4e2d " + (state.progress * 100).toInt() + "%",
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+            state.error?.let { error ->
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (state.isReady) {
+                OutlinedButton(onClick = onDelete) {
+                    Text("\u5220\u9664\u6a21\u578b")
+                }
+            } else {
+                Button(
+                    onClick = onDownload,
+                    enabled = !state.isDownloading
+                ) {
+                    Text(if (state.isDownloading) "\u4e0b\u8f7d\u4e2d\u2026" else "\u4e0b\u8f7d\u6a21\u578b")
+                }
             }
         }
     }
