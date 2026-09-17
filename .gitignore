@@ -9,3 +9,4 @@ captures/
 artifacts/
 app/src/main/libs/
 app/.cxx/
+.kotlin/
