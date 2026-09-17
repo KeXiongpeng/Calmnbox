@@ -34,7 +34,27 @@ class ModelManagerTest {
         File(dir, "llm_config.json").writeText("{}")
         RandomAccessFile(File(dir, "llm.mnn"), "rw").use { it.setLength(600L * 1024 * 1024) }
         File(dir, "llm.mnn.weight").writeText("")
-        File(dir, "tokenizer.mtok").writeText("")
+        File(dir, "tokenizer.txt").writeText("")
+    }
+
+    @Test
+    fun modelFilesMatchCurrentModelScopeManifest() {
+        assertThat(ModelManager.MODEL_FILES).containsExactly(
+            "config.json",
+            "llm_config.json",
+            "llm.mnn",
+            "llm.mnn.weight",
+            "tokenizer.txt"
+        ).inOrder()
+    }
+
+    @Test
+    fun missingTokenizerMakesModelNotReady() {
+        val dir = manager().modelDir()
+        writeSparseModel(dir)
+        File(dir, "tokenizer.txt").delete()
+
+        assertThat(manager().isModelReady()).isFalse()
     }
 
     @Test

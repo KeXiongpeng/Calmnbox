@@ -16,8 +16,9 @@ open class ModelManager(
     open fun isModelReady(): Boolean {
         val dir = modelDir()
         if (!dir.isDirectory) return false
-        if (!File(dir, "config.json").isFile) return false
-        val totalBytes = dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+        val files = MODEL_FILES.map { File(dir, it) }
+        if (files.any { !it.isFile }) return false
+        val totalBytes = files.sumOf { it.length() }
         return totalBytes > MIN_MODEL_BYTES
     }
 
@@ -68,7 +69,7 @@ open class ModelManager(
             "llm_config.json",
             "llm.mnn",
             "llm.mnn.weight",
-            "tokenizer.mtok"
+            "tokenizer.txt"
         )
         const val MODEL_BASE_URL =
             "https://modelscope.cn/models/MNN/Qwen2.5-1.5B-Instruct-MNN/resolve/master"
