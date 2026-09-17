@@ -2,6 +2,7 @@ package com.calm.inbox.core.model
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,7 +61,7 @@ class MnnLlmEngine(
                                 (System.nanoTime() - startNanos) / 1_000_000
                             )
                         }
-                        return trySend(token).isSuccess
+                        return !trySendBlocking(token).isSuccess
                     }
                 })
                 close()

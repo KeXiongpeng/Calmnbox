@@ -25,19 +25,26 @@ public:
         on_token_ = env_->GetMethodID(cls, "onToken", "(Ljava/lang/String;)Z");
     }
 
+    bool finished() const {
+        return listener_stopped_;
+    }
+
 protected:
     std::streamsize xsputn(const char *s, std::streamsize count) override {
         if (count <= 0) {
             return 0;
         }
-        jstring token = env_->NewStringUTF(std::string(s, static_cast<size_t>(count)).c_str());
-        jboolean stop = env_->CallBooleanMethod(listener_, on_token_, token);
-        env_->DeleteLocalRef(token);
-        if (env_->ExceptionCheck() || stop == JNI_TRUE) {
-            env_->ExceptionClear();
-            return 0;
+        std::string chunk(s, static_cast<size_t>(count));
+        const auto eop_position = chunk.find("<eop>");
+        if (eop_position != std::string::npos) {
+            if (eop_position > 0 && !EmitChunk(chunk.substr(0, eop_position))) {
+                return 0;
+            }
+            // The Android prebuilt MNN runtime can emit <eop> after every one-token
+            // step. Follow the official Android app behavior and continue stepping.
+            return count;
         }
-        return count;
+        return EmitChunk(chunk) ? chunk.size() : 0;
     }
 
     int_type overflow(int_type ch) override {
@@ -45,14 +52,30 @@ protected:
             return traits_type::eof();
         }
         char c = traits_type::to_char_type(ch);
-        return xsputn(&c, 1) == 1 ? ch : traits_type::eof();
+        const bool succeeded = xsputn(&c, 1) == 1;
+        return succeeded ? ch : traits_type::eof();
     }
 
 private:
+    bool EmitChunk(const std::string &chunk) {
+        jstring token = env_->NewStringUTF(chunk.c_str());
+        jboolean stop = env_->CallBooleanMethod(listener_, on_token_, token);
+        env_->DeleteLocalRef(token);
+        if (env_->ExceptionCheck() || stop == JNI_TRUE) {
+            env_->ExceptionClear();
+            listener_stopped_ = true;
+            return false;
+        }
+        return true;
+    }
+
     JNIEnv *env_;
     jobject listener_;
     jmethodID on_token_;
+    bool listener_stopped_ = false;
 };
+
+constexpr int kMaxNewTokens = 32;
 
 } // namespace
 
@@ -96,8 +119,19 @@ Java_com_calm_inbox_core_model_MnnNative_generate(
 
     ListenerStreamBuf buffer(env, listener);
     std::ostream output(&buffer);
+    MNN::Transformer::ChatMessages chat_messages{
+        {"user", input}
+    };
     try {
-        llm->response(input, &output);
+        llm->response(chat_messages, &output, "<eop>", 0);
+        for (int generated = 0; generated < kMaxNewTokens && !buffer.finished(); ++generated) {
+            auto *context = const_cast<MNN::Transformer::LlmContext *>(llm->getContext());
+            if (context != nullptr &&
+                context->status != MNN::Transformer::LlmStatus::RUNNING) {
+                context->status = MNN::Transformer::LlmStatus::RUNNING;
+            }
+            llm->generate(1);
+        }
     } catch (const std::exception &e) {
         LOGE("response failed: %s", e.what());
     } catch (...) {

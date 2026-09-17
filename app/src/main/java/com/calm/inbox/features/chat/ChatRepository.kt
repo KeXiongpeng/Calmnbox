@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.flow
 
 data class Citation(val notificationId: Long, val title: String)
 
+private const val NO_MATCH_ANSWER = "\u901a\u77e5\u4e2d\u6ca1\u6709\u627e\u5230"
+
 sealed interface ChatEvent {
     data class Chunk(val text: String) : ChatEvent
     data class Done(val citations: List<Citation>) : ChatEvent
@@ -42,6 +44,14 @@ open class ChatRepository @Inject constructor(
             )
         )
 
+        if (notifications.isEmpty()) {
+            return emitPersistedAnswer(NO_MATCH_ANSWER, emptyList())
+        }
+
+        ChatAnswers.verificationCode(normalized, notifications)?.let { answer ->
+            return emitPersistedAnswer(answer, citations)
+        }
+
         return flow {
             val answer = StringBuilder()
             engine.generateStream(ChatPrompts.build(normalized, notifications))
@@ -59,6 +69,22 @@ open class ChatRepository @Inject constructor(
             )
             emit(ChatEvent.Done(citations))
         }
+    }
+
+    private fun emitPersistedAnswer(
+        answer: String,
+        citations: List<Citation>
+    ): Flow<ChatEvent> = flow {
+        emit(ChatEvent.Chunk(answer))
+        chatDao.insert(
+            ChatMessageEntity(
+                role = "assistant",
+                content = answer,
+                citationIds = citations.joinToString(",") { it.notificationId.toString() },
+                createdAt = clock.millis()
+            )
+        )
+        emit(ChatEvent.Done(citations))
     }
 
     open fun history(): Flow<List<ChatMessageEntity>> = chatDao.observeAll()

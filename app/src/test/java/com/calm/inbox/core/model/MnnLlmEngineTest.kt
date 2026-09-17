@@ -3,6 +3,8 @@ package com.calm.inbox.core.model
 import app.cash.turbine.test
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -81,6 +83,41 @@ class MnnLlmEngineTest {
             awaitComplete()
         }
     }
+
+    @Test
+    fun successfulTokenSendTellsNativeToContinue() =
+        runTest(UnconfinedTestDispatcher()) {
+            val fake = NativeFake()
+            val stopSignals = mutableListOf<Boolean>()
+            fake.onGenerate = { listener ->
+                stopSignals += listener.onToken("token")
+                stopSignals += listener.onToken(null)
+            }
+            val engine = MnnLlmEngine(fake.create, fake.generate, fake.release)
+            engine.load("/models/qwen")
+
+            engine.generateStream("prompt").toList()
+
+            assertThat(stopSignals).containsExactly(false, true).inOrder()
+        }
+
+    @Test
+    fun generateStreamDoesNotStopWhenConsumerIsSlowerThanNativeProducer() =
+        runTest(UnconfinedTestDispatcher()) {
+            val fake = NativeFake()
+            fake.onGenerate = { listener ->
+                repeat(100) { listener.onToken("x") }
+                listener.onToken(null)
+            }
+            val engine = MnnLlmEngine(fake.create, fake.generate, fake.release)
+            engine.load("/models/qwen")
+
+            val tokens = engine.generateStream("prompt")
+                .onEach { delay(1) }
+                .toList()
+
+            assertThat(tokens).hasSize(100)
+        }
 
     @Test
     fun firstTokenLatencyListenerInvokedExactlyOncePerStream() = runTest(UnconfinedTestDispatcher()) {
