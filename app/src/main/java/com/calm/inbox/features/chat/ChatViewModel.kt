@@ -1,5 +1,6 @@
 package com.calm.inbox.features.chat
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calm.inbox.core.database.entity.ChatMessageEntity
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 data class ChatUiState(
     val precondition: ChatPrecondition = ChatPrecondition.Ready,
@@ -53,6 +55,8 @@ class ChatViewModel @Inject constructor(
 
         lastQuestion = question
         viewModelScope.launch {
+            val generationStartedAtNano = System.nanoTime()
+            var chunkCount = 0
             _isStreaming.value = true
             _streamingAnswer.value = ""
             _citations.value = emptyList()
@@ -80,8 +84,20 @@ class ChatViewModel @Inject constructor(
 
                 repository.ask(question).collect { event ->
                     when (event) {
-                        is ChatEvent.Chunk -> _streamingAnswer.value += event.text
-                        is ChatEvent.Done -> _citations.value = event.citations
+                        is ChatEvent.Chunk -> {
+                            chunkCount++
+                            _streamingAnswer.value += event.text
+                        }
+                        is ChatEvent.Done -> {
+                            _citations.value = event.citations
+                            val elapsedMs = TimeUnit.NANOSECONDS.toMillis(
+                                System.nanoTime() - generationStartedAtNano
+                            )
+                            Log.i(
+                                ChatTelemetry.LOG_TAG,
+                                ChatTelemetry.generationLog(chunkCount, elapsedMs)
+                            )
+                        }
                     }
                 }
                 updateUiState(
